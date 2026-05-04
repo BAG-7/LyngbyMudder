@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mudder-score Lyngby Sø / Åmose</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { font-family: system-ui; background:#0b1020; color:#f5f5f5; padding:1.5rem; }
+    h1 { font-size:1.6rem; margin-bottom:0.3rem; }
+    .card { background:#151a2b; padding:1rem; border-radius:0.8rem; margin-top:1rem; }
+    .score { font-size:3rem; font-weight:700; }
+    .status-ok { color:#7dd56f; }
+    .status-mid { color:#ffd166; }
+    .status-bad { color:#ff6b6b; }
+    .error { color:#ffb4b4; margin-top:1rem; }
+  </style>
+</head>
+<body>
+  <h1>Mudder-score · Lyngby Sø / Åmose</h1>
+  <div class="card">
+    <div class="score" id="score">–</div>
+    <div id="label" class="status-mid">Henter data…</div>
+    <div id="detail"></div>
+  </div>
+  <div id="error" class="error"></div>
+
+<script>
+function classify(prec24, prec48, temp, wind) {
+  let score = 1, label = "Tørt", cls = "status-ok";
+
+  if (prec48 > 10 || prec24 > 8) { score=5; label="Sump"; cls="status-bad"; }
+  else if (prec48 > 5 || prec24 > 4) { score=4; label="Meget mudret"; cls="status-bad"; }
+  else if (prec48 > 2 || prec24 > 1) { score=3; label="Moderat mudret"; cls="status-mid"; }
+  else if (prec48 > 0.2) { score=2; label="Let fugtigt"; cls="status-ok"; }
+
+  if (temp < 5 && score < 5) score += 1;
+  else if (temp < 10 && score < 5) score += 0.5;
+  if (wind > 6 && score > 1) score -= 0.5;
+
+  score = Math.max(1, Math.min(5, score));
+  score = Math.round(score * 2) / 2;
+
+  return {score, label, cls};
+}
+
+async function load() {
+  try {
+    const res = await fetch("data/weather.json?cache=" + Date.now());
+    if (!res.ok) throw new Error("Kan ikke hente weather.json");
+    const data = await res.json();
+
+    const ts = data.properties.timeseries;
+    const now = Date.now();
+    const h24 = 24*3600*1000, h48 = 48*3600*1000;
+
+    let prec24=0, prec48=0, temp=null, wind=null;
+
+    for (const t of ts) {
+      const time = new Date(t.time).getTime();
+      const diff = now - time;
+      const inst = t.data.instant.details;
+      const next = t.data.next_1_hours?.details;
+
+      if (temp===null && Math.abs(diff)<3600*1000) {
+        temp = inst.air_temperature;
+        wind = inst.wind_speed || 0;
+      }
+      if (next && next.precipitation_amount!=null) {
+        const p = next.precipitation_amount;
+        if (diff>=0 && diff<=h24) prec24+=p;
+        if (diff>=0 && diff<=h48) prec48+=p;
+      }
+    }
+
+    const {score, label, cls} = classify(prec24, prec48, temp, wind);
+
+    document.getElementById("score").textContent = score.toString().replace(".", ",");
+    const labelEl = document.getElementById("label");
+    labelEl.textContent = label;
+    labelEl.className = cls;
+
+    document.getElementById("detail").textContent =
+      `Nedbør: ${prec24.toFixed(1)} mm (24 t), ${prec48.toFixed(1)} mm (48 t) · ` +
+      `Temp: ${temp.toFixed(1)} °C · Vind: ${wind.toFixed(1)} m/s`;
+
+  } catch (e) {
+    document.getElementById("error").textContent = "Fejl: " + e.message;
+  }
+}
+
+load();
+</script>
+</body>
+</html>

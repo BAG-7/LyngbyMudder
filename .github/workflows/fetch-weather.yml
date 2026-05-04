@@ -1,0 +1,26 @@
+name: Fetch Met.no Weather
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # hver time
+  workflow_dispatch:
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch weather
+        run: |
+          curl -A "LyngbyMudderApp/1.0 (contact: example@example.com)" \
+            "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=55.77&lon=12.50" \
+            -o data/weather.json
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add data/weather.json
+          git commit -m "Update weather" || echo "No changes"
+          git push

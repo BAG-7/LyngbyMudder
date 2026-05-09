@@ -8,30 +8,34 @@ on:
 jobs:
   fetch:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Ensure data folder exists
         run: mkdir -p data
 
-      - name: Fetch weather (debug)
+      - name: Fetch weather from Met.no
         run: |
-          set -x
-          mkdir -p data
+          set -e
+          echo "Fetching weather data from Met.no..."
+
           curl -v -L \
-            -A "LyngbyMudderApp/1.0 (contact: example@example.com)" \
+            -A "LyngbyMudderApp/1.0 (contact: bag-7@users.noreply.github.com)" \
             "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=55.77&lon=12.50" \
             -o data/weather.json
+
           echo "Fetch complete. File size:"
           ls -l data/weather.json
 
-
-      - name: Commit and push
+      - name: Commit and push updated weather.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
+
           git add data/weather.json
           git commit -m "Update weather" || echo "No changes"
           git push

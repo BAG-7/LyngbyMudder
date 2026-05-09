@@ -16,9 +16,14 @@ jobs:
 
       - name: Fetch weather
         run: |
+          mkdir -p data
           curl -A "LyngbyMudderApp/1.0 (contact: example@example.com)" \
+            --noproxy '*' \
+            --proto '=https' \
+            --max-redirs 0 \
             "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=55.77&lon=12.50" \
             -o data/weather.json
+
 
       - name: Commit and push
         env:
